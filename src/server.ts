@@ -10,7 +10,6 @@ app.use(cors());
 
 app.use(express.json());
 
-
 const db = new JsonDB(new Config("data/db.json", true, true, "/", false));
 
 const PORT = process.env.PORT || 3000;
