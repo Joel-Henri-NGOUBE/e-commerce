@@ -1,5 +1,62 @@
 {
-  "users": [],
-  "products": [],
+  "users": [
+    {
+      "id": 1,
+      "name": "Alice Martin",
+      "username": "alice.martin",
+      "email": "alice.martin@example.test"
+    },
+    {
+      "id": 2,
+      "name": "Lucas Bernard",
+      "username": "lucas.bernard",
+      "email": "lucas.bernard@example.test"
+    },
+    {
+      "id": 3,
+      "name": "Emma Petit",
+      "username": "emma.petit",
+      "email": "emma.petit@example.test"
+    },
+    {
+      "id": 4,
+      "name": "Hugo Robert",
+      "username": "hugo.robert",
+      "email": "hugo.robert@example.test"
+    },
+    {
+      "id": 5,
+      "name": "Ines Moreau",
+      "username": "ines.moreau",
+      "email": "ines.moreau@example.test"
+    }
+  ],
+  "products": [
+    {
+      "id": 1,
+      "name": "Clavier mecanique",
+      "stock": 24
+    },
+    {
+      "id": 2,
+      "name": "Souris sans fil",
+      "stock": 37
+    },
+    {
+      "id": 3,
+      "name": "Ecran 27 pouces",
+      "stock": 12
+    },
+    {
+      "id": 4,
+      "name": "Casque audio",
+      "stock": 18
+    },
+    {
+      "id": 5,
+      "name": "Webcam HD",
+      "stock": 9
+    }
+  ],
   "commands": []
 }
