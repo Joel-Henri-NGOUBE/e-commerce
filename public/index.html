@@ -1,9 +1,118 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <meta name="theme-color" content="#f4f6f1" />
+    <title>Suivi de commande</title>
+    <style></style>
   </head>
-  <body></body>
+  <body>
+    <main>
+      <div class="topline">
+        <span class="live-dot" aria-hidden="true"></span
+        ><span id="connection">Connexion au suivi</span>
+      </div>
+      <h1>Votre commande</h1>
+      <p class="subtitle">Suivez son acheminement en temps réel.</p>
+
+      <div class="order-line">
+        <div>
+          <span class="order-label">Référence</span>
+          <div class="order-id" id="order-id">Chargement…</div>
+        </div>
+        <span class="status-pill" id="status-pill">En attente</span>
+      </div>
+
+      <ol class="timeline" id="timeline" aria-label="Étapes de la commande">
+        <li class="step" data-step="preparing">Préparation</li>
+        <li class="step" data-step="shipped">Expédiée</li>
+        <li class="step" data-step="delivered">Livrée</li>
+      </ol>
+
+      <section class="details" aria-label="Détails de la commande">
+        <div>
+          <span class="detail-label">Quantité</span
+          ><span class="detail-value" id="quantity">—</span>
+        </div>
+        <div>
+          <span class="detail-label">Créée le</span
+          ><span class="detail-value" id="created-at">—</span>
+        </div>
+      </section>
+      <p class="message" id="message" role="status" aria-live="polite">
+        Récupération du statut…
+      </p>
+    </main>
+    <script>
+      const commandId = window.location.pathname
+        .split("/")
+        .filter(Boolean)
+        .at(-1);
+      const connection = document.querySelector("#connection");
+      const message = document.querySelector("#message");
+      const statusPill = document.querySelector("#status-pill");
+      const statusLabels = {
+        preparing: "En préparation",
+        shipped: "Expédiée",
+        delivered: "Livrée",
+        cancelled: "Annulée",
+      };
+      const steps = [...document.querySelectorAll("[data-step]")];
+
+      document.querySelector("#order-id").textContent = `#${commandId || "?"}`;
+      const stream = new EventSource(
+        `/commands/${encodeURIComponent(commandId)}/events`,
+      );
+
+      function showCommand(command) {
+        const statuses = ["preparing", "shipped", "delivered"];
+        const currentStep = statuses.indexOf(command.status);
+        statusPill.textContent =
+          statusLabels[command.status] || "Statut inconnu";
+        statusPill.classList.toggle(
+          "cancelled",
+          command.status === "cancelled",
+        );
+        steps.forEach((step, index) => {
+          step.classList.toggle("done", index <= currentStep);
+          step.classList.toggle("current", index === currentStep);
+        });
+        document.querySelector("#quantity").textContent = String(
+          command.quantity,
+        );
+        document.querySelector("#created-at").textContent = new Date(
+          command.createdAt,
+        ).toLocaleString("fr-FR");
+        message.textContent =
+          command.status === "cancelled"
+            ? "Cette commande a été annulée."
+            : command.status === "delivered"
+              ? "La commande a été livrée."
+              : "Le statut se met à jour automatiquement.";
+      }
+
+      [
+        "command.snapshot",
+        "command.created",
+        "command.status",
+        "command.cancelled",
+      ].forEach((eventName) => {
+        stream.addEventListener(eventName, (event) =>
+          showCommand(JSON.parse(event.data)),
+        );
+      });
+      stream.onopen = () => {
+        connection.textContent = "Suivi en direct";
+        message.classList.remove("error");
+      };
+      stream.onerror = () => {
+        connection.textContent = "Connexion interrompue";
+        message.textContent =
+          "Impossible de joindre cette commande. Vérifiez la référence ou actualisez la page.";
+        message.classList.add("error");
+      };
+      window.addEventListener("pagehide", () => stream.close(), { once: true });
+    </script>
+  </body>
 </html>
