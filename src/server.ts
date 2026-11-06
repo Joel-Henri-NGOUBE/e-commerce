@@ -12,6 +12,28 @@ app.use(cors());
 app.use(express.json());
 
 const db = new JsonDB(new Config("data/db.json", true, true, "/", false));
+const eventClients = new Set<Response>();
+
+function sendEvent(event: string, data: unknown) {
+    const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    eventClients.forEach((client) => client.write(message));
+}
+
+app.get("/events", (req: Request, res: Response) => {
+    res.set({
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive"
+    });
+    res.flushHeaders();
+    eventClients.add(res);
+
+    const keepAlive = setInterval(() => res.write(": keep-alive\n\n"), 25_000);
+    res.on("close", () => {
+        clearInterval(keepAlive);
+        eventClients.delete(res);
+    });
+});
 
 app.get("/commands", async (req: Request, res: Response) => {
     const commands = await db.getObjectDefault<Order[]>("/commands", []);
@@ -57,8 +79,11 @@ app.post("/commands", async (req: Request, res: Response) => {
         createdAt: new Date().toISOString()
     };
 
-    await db.push(`/products/${productIndex}/stock`, (product as Product).stock - quantity, true);
+    const updatedStock = product.stock - quantity;
+    await db.push(`/products/${productIndex}/stock`, updatedStock, true);
+    sendEvent("stock.updated", { productId, stock: updatedStock });
     await db.push("/commands[]", command);
+    sendEvent("command.created", command);
 
     res.status(201).json(command);
 });
@@ -92,19 +117,24 @@ app.patch("/commands/:id/status", async (req: Request, res: Response) => {
             res.status(404).json({ error: "Produit introuvable." });
             return;
         }
-        await db.push(`/products/${productIndex}/stock`, (products[productIndex] as Product).stock + command.quantity, true);
+        const updatedStock = (products[productIndex] as Product).stock + command.quantity;
+        await db.push(`/products/${productIndex}/stock`, updatedStock, true);
+        sendEvent("stock.updated", { productId: command.productId, stock: updatedStock });
     }
 
     await db.push(`/commands/${commandIndex}/status`, status, true);
+    const updatedCommand = { ...command, status };
+    sendEvent(status === "cancelled" ? "command.cancelled" : "command.status", updatedCommand);
 
     if (status === "shipped") {
         setTimeout(() => {
             void db.push(`/commands/${commandIndex}/status`, "delivered", true)
+                .then(() => sendEvent("command.status", { ...command, status: "delivered" }))
                 .catch((error: unknown) => console.error("Impossible de livrer la commande automatiquement:", error));
         }, 20_000);
     }
 
-    res.json({ ...command, status });
+    res.json(updatedCommand);
 });
 
 const PORT = process.env.PORT || 3000;
